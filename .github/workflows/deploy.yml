@@ -24,18 +24,20 @@ jobs:
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm build
 
-      - name: Deploy to server
-        env:
-          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
-        run: |
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          # 从 base64 解码密钥（彻底避免换行符/编码问题）
-          echo "$SSH_KEY" | base64 -d > ~/.ssh/deploy_key 2>/dev/null || \
-          python3 -c 'import base64,sys,os; sys.stdout.buffer.write(base64.b64decode(os.environ["SSH_KEY"]))' > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/deploy_key
-          ssh-keyscan -H 8.148.176.202 >> ~/.ssh/known_hosts 2>/dev/null
-          tar czf /tmp/dist.tar.gz -C dist .
-          scp /tmp/dist.tar.gz carrot@8.148.176.202:/tmp/
-          ssh carrot@8.148.176.202 "mkdir -p /home/carrot/zero-to-tech/dist && rm -rf /home/carrot/zero-to-tech/dist/* && tar xzf /tmp/dist.tar.gz -C /home/carrot/zero-to-tech/dist && rm /tmp/dist.tar.gz"
+      - name: Create target directory
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 8.148.176.202
+          username: carrot
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: mkdir -p /home/carrot/zero-to-tech/dist
+
+      - name: Deploy via scp
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 8.148.176.202
+          username: carrot
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: dist/
+          target: /home/carrot/zero-to-tech/dist/
+          rm: true
