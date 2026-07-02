@@ -24,20 +24,26 @@ jobs:
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm build
 
-      - name: Create target directory on server
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: 8.148.176.202
-          username: carrot
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: mkdir -p /home/carrot/zero-to-tech/dist
+      - name: Deploy to server
+        env:
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        run: |
+          # 写入 SSH 密钥
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          SSH_OPTS="-o StrictHostKeyChecking=no -i ~/.ssh/deploy_key"
 
-      - name: Deploy dist to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: 8.148.176.202
-          username: carrot
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          source: dist/
-          target: /home/carrot/zero-to-tech/dist/
-          rm: true
+          # 打包 dist/
+          tar czf /tmp/dist.tar.gz -C dist .
+
+          # 上传到服务器
+          scp $SSH_OPTS /tmp/dist.tar.gz carrot@8.148.176.202:/tmp/
+
+          # 服务器上解压到目标目录
+          ssh $SSH_OPTS carrot@8.148.176.202 "
+            mkdir -p /home/carrot/zero-to-tech/dist &&
+            rm -rf /home/carrot/zero-to-tech/dist/* &&
+            tar xzf /tmp/dist.tar.gz -C /home/carrot/zero-to-tech/dist &&
+            rm /tmp/dist.tar.gz
+          "
