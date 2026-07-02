@@ -25,38 +25,16 @@ jobs:
       - run: pnpm build
 
       - name: Deploy to server
-        shell: bash
         env:
           SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-
-          # 用 Python 写密钥文件（引用的 heredoc，bash 不会展开变量）
-          python3 << 'PYEOF' > ~/.ssh/deploy_key
-import os, sys
-sys.stdout.write(os.environ['SSH_KEY'])
-PYEOF
-
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          python3 -c "import os,sys; sys.stdout.write(os.environ['SSH_KEY'])" > ~/.ssh/deploy_key
           sed -i 's/\r$//' ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-
-          echo "=== 密钥验证 ==="
-          ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null && echo "密钥有效" || echo "密钥无效"
-
-          # 启动 ssh-agent
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/deploy_key
-
-          # 添加服务器到 known_hosts
           ssh-keyscan -H 8.148.176.202 >> ~/.ssh/known_hosts 2>/dev/null
-
-          # 打包部署
           tar czf /tmp/dist.tar.gz -C dist .
           scp /tmp/dist.tar.gz carrot@8.148.176.202:/tmp/
-          ssh carrot@8.148.176.202 "
-            mkdir -p /home/carrot/zero-to-tech/dist &&
-            rm -rf /home/carrot/zero-to-tech/dist/* &&
-            tar xzf /tmp/dist.tar.gz -C /home/carrot/zero-to-tech/dist &&
-            rm /tmp/dist.tar.gz
-          "
+          ssh carrot@8.148.176.202 "mkdir -p /home/carrot/zero-to-tech/dist && rm -rf /home/carrot/zero-to-tech/dist/* && tar xzf /tmp/dist.tar.gz -C /home/carrot/zero-to-tech/dist && rm /tmp/dist.tar.gz"
