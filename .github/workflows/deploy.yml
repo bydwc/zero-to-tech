@@ -29,8 +29,9 @@ jobs:
           SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          python3 -c 'import os,sys; sys.stdout.write(os.environ["SSH_KEY"])' > ~/.ssh/deploy_key
-          sed -i 's/\r$//' ~/.ssh/deploy_key
+          # 从 base64 解码密钥（彻底避免换行符/编码问题）
+          echo "$SSH_KEY" | base64 -d > ~/.ssh/deploy_key 2>/dev/null || \
+          python3 -c 'import base64,sys,os; sys.stdout.buffer.write(base64.b64decode(os.environ["SSH_KEY"]))' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/deploy_key
