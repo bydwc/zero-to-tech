@@ -24,18 +24,17 @@ jobs:
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm build
 
-      - name: Install SSH key
-        uses: gacts/install-ssh-key@v1
-        with:
-          privatekey: ${{ secrets.SERVER_SSH_KEY }}
-
       - name: Deploy to server
+        env:
+          SSHPASS: ${{ secrets.SERVER_PASSWORD }}
         run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
           ssh-keyscan -H 8.148.176.202 >> ~/.ssh/known_hosts 2>/dev/null
+          export SSHPASS=${{ secrets.SERVER_PASSWORD }}
+          sshpass -e ssh carrot@8.148.176.202 "mkdir -p /home/carrot/zero-to-tech/dist"
           tar czf /tmp/dist.tar.gz -C dist .
-          scp /tmp/dist.tar.gz carrot@8.148.176.202:/tmp/
-          ssh carrot@8.148.176.202 "
-            mkdir -p /home/carrot/zero-to-tech/dist &&
+          sshpass -e scp -o StrictHostKeyChecking=no /tmp/dist.tar.gz carrot@8.148.176.202:/tmp/
+          sshpass -e ssh carrot@8.148.176.202 "
             rm -rf /home/carrot/zero-to-tech/dist/* &&
             tar xzf /tmp/dist.tar.gz -C /home/carrot/zero-to-tech/dist &&
             rm /tmp/dist.tar.gz
