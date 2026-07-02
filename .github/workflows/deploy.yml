@@ -39,6 +39,5 @@ jobs:
           username: carrot
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: dist/
-          target: /home/carrot/zero-to-tech/
-          strip_components: 1
+          target: /home/carrot/zero-to-tech/dist/
           rm: true
