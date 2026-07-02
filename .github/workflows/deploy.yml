@@ -24,12 +24,21 @@ jobs:
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm build
 
-      - name: Deploy to server
-        uses: easingthemes/ssh-deploy@main
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          REMOTE_HOST: 8.148.176.202
-          REMOTE_USER: carrot
-          SOURCE: dist/
-          TARGET: /home/carrot/zero-to-tech/dist/
-          ARGS: -avz --delete
+      - name: Create target directory on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 8.148.176.202
+          username: carrot
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: mkdir -p /home/carrot/zero-to-tech/dist
+
+      - name: Deploy dist to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 8.148.176.202
+          username: carrot
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: dist/
+          target: /home/carrot/zero-to-tech/
+          strip_components: 1
+          rm: true
