@@ -24,24 +24,47 @@ jobs:
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm build
 
-      - name: Deploy to server
+      - name: Test SSH connection
+        shell: bash
         env:
           SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
         run: |
-          # 写入 SSH 密钥
           mkdir -p ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          # 用 printf 确保换行符正确
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          SSH_OPTS="-o StrictHostKeyChecking=no -i ~/.ssh/deploy_key"
+          chmod 700 ~/.ssh
 
-          # 打包 dist/
+          # 启动 ssh-agent 并加载密钥
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/deploy_key
+
+          # 添加服务器到 known_hosts
+          ssh-keyscan -H 8.148.176.202 >> ~/.ssh/known_hosts 2>/dev/null
+
+          # 测试连接（带详细输出）
+          ssh -v -o ConnectTimeout=10 carrot@8.148.176.202 "echo SSH_OK" 2>&1
+
+      - name: Deploy to server
+        shell: bash
+        env:
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/deploy_key
+
+          ssh-keyscan -H 8.148.176.202 >> ~/.ssh/known_hosts 2>/dev/null
+
+          # 打包并上传
           tar czf /tmp/dist.tar.gz -C dist .
+          scp /tmp/dist.tar.gz carrot@8.148.176.202:/tmp/
 
-          # 上传到服务器
-          scp $SSH_OPTS /tmp/dist.tar.gz carrot@8.148.176.202:/tmp/
-
-          # 服务器上解压到目标目录
-          ssh $SSH_OPTS carrot@8.148.176.202 "
+          # 服务器上解压
+          ssh carrot@8.148.176.202 "
             mkdir -p /home/carrot/zero-to-tech/dist &&
             rm -rf /home/carrot/zero-to-tech/dist/* &&
             tar xzf /tmp/dist.tar.gz -C /home/carrot/zero-to-tech/dist &&
