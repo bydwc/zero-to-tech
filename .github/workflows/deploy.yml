@@ -24,20 +24,19 @@ jobs:
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm build
 
-      - name: Create target directory
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Install SSH key
+        uses: gacts/install-ssh-key@v1
         with:
-          host: 8.148.176.202
-          username: carrot
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: mkdir -p /home/carrot/zero-to-tech/dist
+          privatekey: ${{ secrets.SERVER_SSH_KEY }}
 
-      - name: Deploy via scp
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: 8.148.176.202
-          username: carrot
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          source: dist/
-          target: /home/carrot/zero-to-tech/dist/
-          rm: true
+      - name: Deploy to server
+        run: |
+          ssh-keyscan -H 8.148.176.202 >> ~/.ssh/known_hosts 2>/dev/null
+          tar czf /tmp/dist.tar.gz -C dist .
+          scp /tmp/dist.tar.gz carrot@8.148.176.202:/tmp/
+          ssh carrot@8.148.176.202 "
+            mkdir -p /home/carrot/zero-to-tech/dist &&
+            rm -rf /home/carrot/zero-to-tech/dist/* &&
+            tar xzf /tmp/dist.tar.gz -C /home/carrot/zero-to-tech/dist &&
+            rm /tmp/dist.tar.gz
+          "
